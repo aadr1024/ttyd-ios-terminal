@@ -119,11 +119,14 @@
             font-size: 20px;
             font-weight: bold;
             opacity: 1;
-            z-index: 1000;
+            z-index: 2000;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .side-hint {
             position: fixed;
@@ -830,9 +833,19 @@
             }, 1800);
         }
 
+        function toggleSidePanel() {
+            sidePanel.classList.toggle('open');
+        }
+
         sideHandle.addEventListener('click', (e) => {
             e.stopPropagation();
-            sidePanel.classList.toggle('open');
+            toggleSidePanel();
+        });
+
+        sideHandle.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSidePanel();
         });
 
         newSessionBtn.addEventListener('click', () => {
@@ -895,6 +908,9 @@
             aiNamingPanel.classList.add('show');
         }
         showSideHint();
+        if (window.location.hash.includes('sessions')) {
+            sidePanel.classList.add('open');
+        }
         setInterval(renderSessions, 60000);
     </script>
 </body>
