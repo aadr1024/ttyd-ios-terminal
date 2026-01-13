@@ -36,6 +36,9 @@ chmod +x setup-macos.sh
 
 Then open `http://localhost:7682`.
 
+If you want local-only on your Mac, use the section above.  
+If you want a public server setup, jump to **Server (rented VPS)** below.
+
 ### Server (rented VPS)
 
 ```bash
