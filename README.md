@@ -27,6 +27,15 @@ This project solves all three.
 
 ## Installation
 
+### macOS (one shot)
+
+```bash
+chmod +x setup-macos.sh
+./setup-macos.sh
+```
+
+Then open `http://localhost:7682`.
+
 ### 1. Install ttyd on your server
 
 ```bash
