@@ -84,6 +84,11 @@ Reload:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+**Vultr + Tailscale (brief):**
+- Create a Vultr Ubuntu instance.
+- Install Tailscale, authenticate, and note the Tailscale IP.
+- Bind ttyd/nginx to the Tailscale IP; access only over Tailscale.
+
 ### 1. Install ttyd on your server
 
 ```bash
