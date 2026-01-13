@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            background: #000;
+            height: 100%;
+            overflow: hidden;
+        }
+        body { position: relative; }
+        :root {
+            --safe-bottom: env(safe-area-inset-bottom);
+            --bottom-bars: 95px;
+        }
+        #terminal-wrap {
+            height: calc(100% - var(--bottom-bars) - var(--safe-bottom));
+            width: 100%;
+        }
+        #terminal {
+            height: 100%;
+            width: 100%;
+        }
+        .paste-area {
+            display: flex;
+            gap: 3px;
+            width: 100%;
+            padding: 5px;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+        }
+        .paste-area input {
+            flex: 1;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 8px;
+            font-size: 16px;
+        }
+        .paste-area button {
+            background: #363;
+            color: #ccc;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 8px 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .controls {
+            background: #1a1a1a;
+            padding: 5px;
+            padding-bottom: calc(5px + var(--safe-bottom));
+            display: flex;
+            gap: 2px;
+            flex-wrap: nowrap;
+            justify-content: center;
+            border-top: 1px solid #333;
+        }
+        .controls button {
+            background: #333;
+            color: #ccc;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .controls button:active { background: #555; }
+        .controls button.red { background: #633; }
+        .controls button.green { background: #363; }
+        .controls-extra {
+            display: none;
+            background: #141414;
+            border-top: 1px solid #222;
+        }
+        .controls-extra.show { display: flex; }
+        .font-menu {
+            position: absolute;
+            right: 8px;
+            bottom: calc(95px + var(--safe-bottom));
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 4px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 10;
+        }
+        .font-menu.open { display: flex; }
+        .font-menu button {
+            background: #222;
+            color: #ccc;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .font-menu button.active { background: #363; color: #fff; }
+        .side-handle {
+            position: fixed;
+            right: calc(6px + env(safe-area-inset-right));
+            top: 35%;
+            background: rgba(42, 42, 42, 0.98);
+            color: #f0f0f0;
+            border: 1px solid #6a8;
+            border-radius: 12px;
+            width: 40px;
+            height: 84px;
+            font-size: 20px;
+            font-weight: bold;
+            opacity: 1;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+        }
+        .side-hint {
+            position: fixed;
+            right: calc(48px + env(safe-area-inset-right));
+            top: calc(35% + 8px);
+            background: rgba(17, 17, 17, 0.95);
+            color: #bbb;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 6px 8px;
+            font-size: 11px;
+            z-index: 11;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .side-hint.show { opacity: 1; }
+        .side-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 200px;
+            background: #0b0b0b;
+            border-left: 1px solid #222;
+            transform: translateX(205px);
+            transition: transform 0.2s ease;
+            z-index: 12;
+            padding: 12px 10px;
+            padding-top: 18px;
+        }
+        .side-panel.open { transform: translateX(0); }
+        .side-title {
+            color: #bbb;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .session-item {
+            background: #181818;
+            color: #ccc;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 11px;
+            text-align: left;
+        }
+        .session-item.active { background: #2a3a2a; color: #fff; }
+        .session-meta {
+            color: #888;
+            font-size: 10px;
+            margin-top: 2px;
+        }
+        .session-list button {
+            background: #181818;
+            color: #ccc;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 11px;
+            text-align: left;
+        }
+        .session-list button.active { background: #2a3a2a; color: #fff; }
+        .side-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .side-actions button {
+            background: #222;
+            color: #ccc;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .side-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 10px 0 12px;
+            color: #aaa;
+            font-size: 11px;
+        }
+        .side-toggle input { accent-color: #5a7; }
+        .side-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 6px 0 10px;
+        }
+        .ai-panel {
+            display: none;
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 8px;
+            margin: 6px 0 10px;
+        }
+        .ai-panel.show { display: block; }
+        .ai-help {
+            color: #888;
+            font-size: 10px;
+            line-height: 1.3;
+        }
+        .ai-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .ai-row button {
+            background: #222;
+            color: #bbb;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .side-field input {
+            background: #161616;
+            color: #ccc;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+        .side-field button {
+            background: #222;
+            color: #ccc;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal-wrap">
+        <div id="terminal"></div>
+    </div>
+
+    <div class="paste-area">
+        <input type="text" id="paste-input" placeholder="Tap here to type/paste, then Send" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <button onclick="sendInput()">Send</button>
+    </div>
+
+    <div id="controls-extra" class="controls controls-extra">
+        <button id="session-prev-btn">Sess ↑</button>
+        <button id="session-next-btn">Sess ↓</button>
+        <button id="session-rename-btn">Rename</button>
+        <button id="session-kill-btn">Terminate</button>
+        <button onclick="sendKey('\x1b[5~')">PgUp</button>
+        <button onclick="sendKey('\x1b[6~')">PgDn</button>
+        <button onclick="sendKey('\x1bOH')">Home</button>
+        <button onclick="sendKey('\x1bOF')">End</button>
+    </div>
+
+    <div class="controls controls-main">
+        <button onclick="sendCtrl('c')" class="red">^C</button>
+        <button onclick="sendCtrl('d')">^D</button>
+        <button onclick="sendCtrl('z')">^Z</button>
+        <button onclick="sendKey('\x1b')">Esc</button>
+        <button onclick="sendKey('\x1b[A')">↑</button>
+        <button onclick="sendKey('\x1b[B')">↓</button>
+        <button onclick="sendKey('\x1b[D')">←</button>
+        <button onclick="sendKey('\x1b[C')">→</button>
+        <button onclick="sendKey('\t')">Tab</button>
+        <button onclick="sendKey('\r')" class="green">Enter</button>
+        <button id="font-menu-btn">Aa</button>
+    </div>
+    <div id="font-menu" class="font-menu">
+        <button data-size="11">A-</button>
+        <button data-size="12">A</button>
+        <button data-size="14">A+</button>
+    </div>
+    <button id="side-handle" class="side-handle" aria-label="Sessions">≡</button>
+    <div id="side-hint" class="side-hint">Sessions</div>
+    <aside id="side-panel" class="side-panel">
+        <div class="side-title">Terminals</div>
+        <div id="session-list" class="session-list"></div>
+        <label class="side-toggle">
+            <input type="checkbox" id="extra-controls-toggle">
+            <span>Extra controls</span>
+        </label>
+        <div class="side-toggle ai-row">
+            <label>
+                <input type="checkbox" id="ai-naming-toggle">
+                <span>AI naming</span>
+            </label>
+            <button id="ai-naming-help-btn">?</button>
+        </div>
+        <div id="ai-naming-panel" class="ai-panel">
+            <div class="side-field">
+                <input id="ai-naming-endpoint" type="text" placeholder="Namer endpoint (optional)">
+            </div>
+            <div class="ai-help">
+                Runs on your server. Store API key there, not in this page.
+            </div>
+        </div>
+        <div class="side-actions">
+            <button id="new-session-btn">New</button>
+            <button id="fresh-session-btn">Fresh</button>
+        </div>
+    </aside>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script>
+        // Use same origin (nginx proxies to ttyd)
+        const ORIGIN = window.location.origin;
+        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const WS_HOST = window.location.host;
+
+        const DEFAULT_FONT_SIZE = 12;
+        const DEFAULT_DIR = '/root/code';
+        const FONT_SIZES = [11, 12, 14];
+        const AI_NAMING_MIN_COMMANDS = 3;
+        const savedFontSize = Number(localStorage.getItem('ttyd-font-size')) || DEFAULT_FONT_SIZE;
+        const term = new Terminal({
+            fontSize: FONT_SIZES.includes(savedFontSize) ? savedFontSize : DEFAULT_FONT_SIZE,
+            fontFamily: 'Menlo, Monaco, monospace',
+            cursorBlink: true,
+            theme: { background: '#000000' }
+        });
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        let ws = null;
+        let authToken = '';
+        let currentSession = localStorage.getItem('ttyd-current-session') || 'main';
+        let didInitDir = false;
+        let pendingCommands = [];
+
+        // Fetch auth token first
+        async function fetchToken() {
+            try {
+                const resp = await fetch(`${ORIGIN}/token`);
+                const data = await resp.json();
+                authToken = data.token || '';
+                return authToken;
+            } catch (e) {
+                console.error('Failed to fetch token:', e);
+                return '';
+            }
+        }
+
+        async function connect() {
+            await fetchToken();
+
+            ws = new WebSocket(`${WS_PROTOCOL}://${WS_HOST}/ws`, ['tty']);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                console.log('WebSocket opened, sending auth...');
+                fitAddon.fit();
+                // Send auth + initial size as JSON (required by ttyd)
+                const authMsg = JSON.stringify({
+                    AuthToken: authToken,
+                    columns: term.cols,
+                    rows: term.rows
+                });
+                const encoder = new TextEncoder();
+                ws.send(encoder.encode(authMsg));
+
+                // Send initial resize after short delay
+                setTimeout(sendResize, 100);
+                setTimeout(() => ensureDefaultDir(), 300);
+            };
+
+            ws.onmessage = (ev) => {
+                const data = new Uint8Array(ev.data);
+                const msgType = data[0];
+
+                if (msgType === 48) { // '0' = OUTPUT
+                    term.write(data.slice(1));
+                } else if (msgType === 49) { // '1' = SET_WINDOW_TITLE
+                    const title = new TextDecoder().decode(data.slice(1));
+                    document.title = title || 'Terminal';
+                } else if (msgType === 50) { // '2' = SET_PREFERENCES
+                    // ignore preferences
+                }
+            };
+
+            ws.onclose = (ev) => {
+                console.log('WebSocket closed:', ev.code, ev.reason);
+                term.write('\r\n\x1b[31mDisconnected. Reconnecting...\x1b[0m\r\n');
+                setTimeout(connect, 2000);
+            };
+
+            ws.onerror = (e) => {
+                console.error('WebSocket error:', e);
+            };
+        }
+
+        function sendResize() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // '1' (ASCII 49) + JSON with columns/rows
+                const resizeData = JSON.stringify({ columns: term.cols, rows: term.rows });
+                const bytes = new TextEncoder().encode(resizeData);
+                const msg = new Uint8Array(bytes.length + 1);
+                msg[0] = 49; // '1' for RESIZE
+                msg.set(bytes, 1);
+                ws.send(msg);
+            }
+        }
+
+        function sendKey(text) {
+            if (ws && ws.readyState === WebSocket.OPEN && text) {
+                // '0' (ASCII 48) + input text
+                const bytes = new TextEncoder().encode(text);
+                const msg = new Uint8Array(bytes.length + 1);
+                msg[0] = 48; // '0' for INPUT
+                msg.set(bytes, 1);
+                ws.send(msg);
+            }
+        }
+
+        function sendCtrl(c) {
+            sendKey(String.fromCharCode(c.charCodeAt(0) - 96));
+        }
+
+        function queueCommand(cmd) {
+            sendKey('\r');
+            sendKey(cmd);
+            sendKey('\r');
+        }
+
+        function ensureDefaultDir(force = false) {
+            if (!force && didInitDir) return;
+            didInitDir = true;
+            queueCommand(`cd ${DEFAULT_DIR}`);
+        }
+
+        function updateSessionMeta(name, updates) {
+            const raw = localStorage.getItem('ttyd-session-meta');
+            let meta = {};
+            if (raw) {
+                try { meta = JSON.parse(raw) || {}; } catch {}
+            }
+            meta[name] = { ...(meta[name] || {}), ...updates };
+            localStorage.setItem('ttyd-session-meta', JSON.stringify(meta));
+        }
+
+        function getSessionMeta(name) {
+            const raw = localStorage.getItem('ttyd-session-meta');
+            if (!raw) return {};
+            try {
+                const meta = JSON.parse(raw) || {};
+                return meta[name] || {};
+            } catch {
+                return {};
+            }
+        }
+
+        function recordCommand(cmd, source = 'user') {
+            const trimmed = (cmd || '').trim();
+            if (!trimmed) return;
+            const meta = getSessionMeta(currentSession);
+            const commands = (meta.commands || 0) + (source === 'user' ? 1 : 0);
+            const sig = /^(cd|git|ssh|kubectl|docker|npm|pnpm|yarn)\b/i.test(trimmed);
+            const lastDir = /^cd\s+(.+)$/i.test(trimmed) ? trimmed.replace(/^cd\s+/i, '') : meta.lastDir;
+            const history = (meta.history || []).slice(-4);
+            history.push(trimmed);
+            updateSessionMeta(currentSession, {
+                commands,
+                lastCommandAt: Date.now(),
+                lastDir,
+                history
+            });
+            maybeAutoName(commands, sig, history);
+        }
+
+        function sendInput() {
+            const input = document.getElementById('paste-input');
+            const text = input.value;
+            if (text) {
+                sendKey(text);
+                recordCommand(text, 'user');
+                input.value = '';
+            }
+            input.focus();
+        }
+
+        // Enter key in input field sends the text
+        document.getElementById('paste-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendInput();
+            }
+        });
+
+        // Direct terminal input (for desktop keyboards)
+        term.onData(data => sendKey(data));
+
+        // Font menu
+        const fontMenu = document.getElementById('font-menu');
+        const fontMenuBtn = document.getElementById('font-menu-btn');
+        const fontButtons = Array.from(fontMenu.querySelectorAll('button[data-size]'));
+
+        function applyFontSize(size) {
+            term.options.fontSize = size;
+            localStorage.setItem('ttyd-font-size', String(size));
+            fontButtons.forEach(btn => {
+                btn.classList.toggle('active', Number(btn.dataset.size) === size);
+            });
+            fitAddon.fit();
+            sendResize();
+        }
+
+        fontButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                applyFontSize(Number(btn.dataset.size));
+                fontMenu.classList.remove('open');
+            });
+        });
+
+        fontMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fontMenu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!fontMenu.contains(e.target) && e.target !== fontMenuBtn) {
+                fontMenu.classList.remove('open');
+            }
+        });
+
+        // Sessions sidebar
+        const sidePanel = document.getElementById('side-panel');
+        const sideHandle = document.getElementById('side-handle');
+        const sideHint = document.getElementById('side-hint');
+        const sessionListEl = document.getElementById('session-list');
+        const newSessionBtn = document.getElementById('new-session-btn');
+        const freshSessionBtn = document.getElementById('fresh-session-btn');
+        const extraControls = document.getElementById('controls-extra');
+        const extraToggle = document.getElementById('extra-controls-toggle');
+        const aiNamingToggle = document.getElementById('ai-naming-toggle');
+        const aiNamingEndpoint = document.getElementById('ai-naming-endpoint');
+        const aiNamingPanel = document.getElementById('ai-naming-panel');
+        const aiNamingHelpBtn = document.getElementById('ai-naming-help-btn');
+        const sessionPrevBtn = document.getElementById('session-prev-btn');
+        const sessionNextBtn = document.getElementById('session-next-btn');
+        const sessionRenameBtn = document.getElementById('session-rename-btn');
+        const sessionKillBtn = document.getElementById('session-kill-btn');
+
+        function loadSessions() {
+            const raw = localStorage.getItem('ttyd-sessions');
+            let sessions = [];
+            if (raw) {
+                try { sessions = JSON.parse(raw) || []; } catch {}
+            }
+            if (!sessions.includes('main')) sessions.unshift('main');
+            return sessions;
+        }
+
+        function saveSessions(sessions) {
+            localStorage.setItem('ttyd-sessions', JSON.stringify(sessions));
+        }
+
+        function suggestSessionName() {
+            const host = window.location.hostname.replace(/\./g, '-');
+            const now = new Date();
+            const stamp = now.toISOString().slice(0, 16).replace(/[-:T]/g, '');
+            return `${host}-${stamp}-server-skill`;
+        }
+
+        function sanitizeSessionName(name) {
+            const clean = (name || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            return clean || `term-${Date.now().toString().slice(-4)}`;
+        }
+
+        function renderSessions() {
+            const sessions = loadSessions();
+            const metaMap = sessions.map((name) => ({
+                name,
+                createdAt: getSessionMeta(name).createdAt || 0
+            }));
+            const mainFirst = metaMap.filter(s => s.name === 'main');
+            const rest = metaMap.filter(s => s.name !== 'main')
+                .sort((a, b) => b.createdAt - a.createdAt);
+            const ordered = [...mainFirst, ...rest].map(s => s.name);
+
+            sessionListEl.innerHTML = '';
+            ordered.forEach((name) => {
+                const meta = getSessionMeta(name);
+                const displayName = meta.displayName || name;
+                const createdAt = meta.createdAt || Date.now();
+                const lastDir = meta.lastDir || DEFAULT_DIR;
+                const item = document.createElement('button');
+                item.className = 'session-item';
+                item.classList.toggle('active', name === currentSession);
+                item.addEventListener('click', () => switchToSession(name));
+                item.innerHTML = `${displayName}<div class="session-meta">${timeAgo(createdAt)} · ${lastDir}</div>`;
+                sessionListEl.appendChild(item);
+            });
+        }
+
+        function switchToSession(name) {
+            const safe = sanitizeSessionName(name);
+            const sessions = loadSessions();
+            if (!sessions.includes(safe)) {
+                sessions.unshift(safe);
+                saveSessions(sessions.slice(0, 8));
+            }
+            currentSession = safe;
+            localStorage.setItem('ttyd-current-session', currentSession);
+            const cmd = `tmux has-session -t ${safe} 2>/dev/null || tmux new-session -d -s ${safe}; tmux switch-client -t ${safe}`;
+            queueCommand(cmd);
+            setTimeout(() => ensureDefaultDir(true), 200);
+            updateSessionMeta(currentSession, { createdAt: getSessionMeta(currentSession).createdAt || Date.now() });
+            renderSessions();
+            sidePanel.classList.remove('open');
+        }
+
+        function cycleSession(delta) {
+            const sessions = loadSessions();
+            if (sessions.length === 0) return;
+            const idx = Math.max(0, sessions.indexOf(currentSession));
+            const next = sessions[(idx + delta + sessions.length) % sessions.length];
+            switchToSession(next);
+        }
+
+        function renameCurrentSession() {
+            const nextName = prompt('Rename session', suggestSessionName());
+            if (!nextName) return;
+            const safe = sanitizeSessionName(nextName);
+            const cmd = `tmux rename-session -t ${currentSession} ${safe}`;
+            queueCommand(cmd);
+            const sessions = loadSessions().filter(s => s !== currentSession);
+            sessions.unshift(safe);
+            saveSessions(sessions.slice(0, 8));
+            const oldMeta = getSessionMeta(currentSession);
+            updateSessionMeta(safe, { ...oldMeta });
+            currentSession = safe;
+            localStorage.setItem('ttyd-current-session', currentSession);
+            renderSessions();
+        }
+
+        function terminateCurrentSession() {
+            const ok = confirm(`Terminate session "${currentSession}"? This will close it for all clients.`);
+            if (!ok) return;
+            const cmd = `tmux has-session -t main 2>/dev/null || tmux new-session -d -s main; tmux switch-client -t main; tmux kill-session -t ${currentSession}`;
+            queueCommand(cmd);
+            currentSession = 'main';
+            localStorage.setItem('ttyd-current-session', currentSession);
+            const sessions = loadSessions().filter(s => s !== currentSession);
+            if (!sessions.includes('main')) sessions.unshift('main');
+            saveSessions(sessions.slice(0, 8));
+            renderSessions();
+        }
+
+        function timeAgo(ts) {
+            const diff = Math.max(0, Date.now() - ts);
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'just now';
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ago`;
+            const days = Math.floor(hrs / 24);
+            return `${days}d ago`;
+        }
+
+        function maybeAutoName(commandCount, significant, history) {
+            const enabled = localStorage.getItem('ttyd-ai-naming') === '1';
+            const endpoint = localStorage.getItem('ttyd-ai-naming-endpoint') || '';
+            if (!enabled || !endpoint) return;
+            const meta = getSessionMeta(currentSession);
+            if (meta.autoNamed) return;
+            if (commandCount < AI_NAMING_MIN_COMMANDS && !significant) return;
+            const payload = {
+                host: window.location.hostname,
+                session: currentSession,
+                history: history || (meta.history || []),
+                lastDir: meta.lastDir || DEFAULT_DIR
+            };
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(res => res.json()).then((data) => {
+                const raw = (data && (data.name || data.title || data.suggestion)) || '';
+                if (!raw) return;
+                const three = raw.trim().split(/\s+/).slice(0, 3).join(' ');
+                const base = sanitizeSessionName(three);
+                const finalName = base.endsWith('server-skill') ? base : `${base}-server-skill`;
+                if (currentSession === 'main') return;
+                const cmd = `tmux rename-session -t ${currentSession} ${finalName}`;
+                queueCommand(cmd);
+                updateSessionMeta(currentSession, { autoNamed: true });
+                const sessions = loadSessions().filter(s => s !== currentSession);
+                sessions.unshift(finalName);
+                saveSessions(sessions.slice(0, 8));
+                const meta = getSessionMeta(currentSession);
+                updateSessionMeta(finalName, { ...meta, displayName: three });
+                currentSession = finalName;
+                localStorage.setItem('ttyd-current-session', currentSession);
+                renderSessions();
+            }).catch(() => {});
+        }
+
+        function updateBottomBars() {
+            const paste = document.querySelector('.paste-area').getBoundingClientRect().height || 0;
+            const controls = document.querySelector('.controls-main').getBoundingClientRect().height || 0;
+            const extra = extraControls.classList.contains('show')
+                ? extraControls.getBoundingClientRect().height
+                : 0;
+            const total = Math.ceil(paste + controls + extra);
+            document.documentElement.style.setProperty('--bottom-bars', `${total}px`);
+            fitAddon.fit();
+            sendResize();
+        }
+
+        function setExtraControls(show) {
+            extraControls.classList.toggle('show', show);
+            localStorage.setItem('ttyd-extra-controls', show ? '1' : '0');
+            setTimeout(updateBottomBars, 50);
+        }
+
+        function showSideHint() {
+            if (localStorage.getItem('ttyd-side-hint') === '1') return;
+            sideHint.classList.add('show');
+            setTimeout(() => {
+                sideHint.classList.remove('show');
+                localStorage.setItem('ttyd-side-hint', '1');
+            }, 1800);
+        }
+
+        sideHandle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidePanel.classList.toggle('open');
+        });
+
+        newSessionBtn.addEventListener('click', () => {
+            const name = prompt('New session name', suggestSessionName());
+            if (name) switchToSession(name);
+        });
+
+        freshSessionBtn.addEventListener('click', () => {
+            queueCommand('reset');
+            ensureDefaultDir(true);
+            sidePanel.classList.remove('open');
+        });
+
+        extraToggle.addEventListener('change', () => {
+            setExtraControls(extraToggle.checked);
+        });
+
+        aiNamingToggle.addEventListener('change', () => {
+            localStorage.setItem('ttyd-ai-naming', aiNamingToggle.checked ? '1' : '0');
+            if (!aiNamingToggle.checked) {
+                aiNamingPanel.classList.remove('show');
+            }
+        });
+
+        aiNamingEndpoint.addEventListener('change', () => {
+            localStorage.setItem('ttyd-ai-naming-endpoint', aiNamingEndpoint.value.trim());
+        });
+
+        aiNamingHelpBtn.addEventListener('click', () => {
+            aiNamingPanel.classList.toggle('show');
+        });
+
+        sessionPrevBtn.addEventListener('click', () => cycleSession(-1));
+        sessionNextBtn.addEventListener('click', () => cycleSession(1));
+        sessionRenameBtn.addEventListener('click', () => renameCurrentSession());
+        sessionKillBtn.addEventListener('click', () => terminateCurrentSession());
+
+        document.addEventListener('click', (e) => {
+            if (!sidePanel.contains(e.target) && e.target !== sideHandle) {
+                sidePanel.classList.remove('open');
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            updateBottomBars();
+        });
+
+        // Start connection
+        connect();
+
+        // Apply active state for current font
+        applyFontSize(term.options.fontSize);
+        renderSessions();
+        extraToggle.checked = localStorage.getItem('ttyd-extra-controls') === '1';
+        setExtraControls(extraToggle.checked);
+        aiNamingToggle.checked = localStorage.getItem('ttyd-ai-naming') === '1';
+        aiNamingEndpoint.value = localStorage.getItem('ttyd-ai-naming-endpoint') || '';
+        if (aiNamingToggle.checked && aiNamingEndpoint.value) {
+            aiNamingPanel.classList.add('show');
+        }
+        showSideHint();
+        setInterval(renderSessions, 60000);
+    </script>
+</body>
+</html>
