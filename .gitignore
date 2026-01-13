@@ -1,2 +1,5 @@
 # Local-only setup with private IPs
 /docs/MY_SETUP.local.md
+
+# Local tooling
+/.claude/
