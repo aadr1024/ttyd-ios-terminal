@@ -271,6 +271,7 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
 10. **Sidebar discoverability**
    - Added visible ≡ handle on right edge + first-run hint pill.
    - Sidebar panel now slides in from the right.
+   - Right-edge touch opens panel as fallback.
 11. **Terminate session**
    - Extra controls include a “Terminate” button with confirm prompt.
    - Switches client to `main`, then kills selected session.

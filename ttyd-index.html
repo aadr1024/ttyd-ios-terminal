@@ -108,18 +108,18 @@
         .font-menu button.active { background: #363; color: #fff; }
         .side-handle {
             position: fixed;
-            right: calc(6px + env(safe-area-inset-right));
+            right: calc(2px + env(safe-area-inset-right));
             top: 35%;
             background: rgba(42, 42, 42, 0.98);
             color: #f0f0f0;
             border: 1px solid #6a8;
             border-radius: 12px;
-            width: 40px;
-            height: 84px;
+            width: 44px;
+            height: 92px;
             font-size: 20px;
             font-weight: bold;
             opacity: 1;
-            z-index: 2000;
+            z-index: 9999;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -127,6 +127,7 @@
             touch-action: manipulation;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            pointer-events: auto;
         }
         .side-hint {
             position: fixed;
@@ -847,6 +848,15 @@
             e.stopPropagation();
             toggleSidePanel();
         });
+
+        // Swipe/tap near right edge to open (backup for handle taps on iOS)
+        window.addEventListener('touchstart', (e) => {
+            const touch = e.touches && e.touches[0];
+            if (!touch) return;
+            if (touch.clientX > window.innerWidth - 20) {
+                sidePanel.classList.add('open');
+            }
+        }, { passive: true });
 
         newSessionBtn.addEventListener('click', () => {
             const name = prompt('New session name', suggestSessionName());
