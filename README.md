@@ -36,6 +36,54 @@ chmod +x setup-macos.sh
 
 Then open `http://localhost:7682`.
 
+### Server (rented VPS)
+
+```bash
+# Install deps
+sudo apt update
+sudo apt install -y ttyd tmux nginx
+
+# Deploy UI
+sudo mkdir -p /var/www/ttyd
+sudo cp ttyd-index.html /var/www/ttyd/index.html
+sudo cp ttyd-session.sh /usr/local/bin/ttyd-session.sh
+sudo chmod +x /usr/local/bin/ttyd-session.sh
+
+# Start ttyd (bind to Tailscale IP or localhost)
+ttyd -W -a -i YOUR_TAILSCALE_IP -p 7681 /usr/local/bin/ttyd-session.sh
+```
+
+Nginx (same-origin proxy):
+
+```nginx
+server {
+    listen YOUR_TAILSCALE_IP:7682;
+    root /var/www/ttyd;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location = /token {
+        proxy_pass http://YOUR_TAILSCALE_IP:7681/token;
+    }
+
+    location /ws {
+        proxy_pass http://YOUR_TAILSCALE_IP:7681/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }
+}
+```
+
+Reload:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ### 1. Install ttyd on your server
 
 ```bash
