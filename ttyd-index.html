@@ -365,6 +365,7 @@
         let currentSession = localStorage.getItem('ttyd-current-session') || 'main';
         let didInitDir = false;
         let pendingCommands = [];
+        let lastOutputUpdateAt = 0;
 
         // Fetch auth token first
         async function fetchToken() {
@@ -408,6 +409,7 @@
 
                 if (msgType === 48) { // '0' = OUTPUT
                     term.write(data.slice(1));
+                    recordOutput(data.slice(1));
                 } else if (msgType === 49) { // '1' = SET_WINDOW_TITLE
                     const title = new TextDecoder().decode(data.slice(1));
                     document.title = title || 'Terminal';
@@ -500,7 +502,8 @@
                 commands,
                 lastCommandAt: Date.now(),
                 lastDir,
-                history
+                history,
+                lastInput: trimmed
             });
             maybeAutoName(commands, sig, history);
         }
@@ -626,11 +629,14 @@
                 const displayName = meta.displayName || name;
                 const createdAt = meta.createdAt || Date.now();
                 const lastDir = meta.lastDir || DEFAULT_DIR;
+                const lastInput = meta.lastInput ? truncate(meta.lastInput, 28) : '';
+                const lastOutput = meta.lastOutput ? truncate(meta.lastOutput, 28) : '';
+                const io = (lastInput || lastOutput) ? `${lastInput}${lastOutput ? ' → ' + lastOutput : ''}` : '';
                 const item = document.createElement('button');
                 item.className = 'session-item';
                 item.classList.toggle('active', name === currentSession);
                 item.addEventListener('click', () => switchToSession(name));
-                item.innerHTML = `${displayName}<div class="session-meta">${timeAgo(createdAt)} · ${lastDir}</div>`;
+                item.innerHTML = `${displayName}<div class="session-meta">${timeAgo(createdAt)} · ${lastDir}${io ? '<br>' + io : ''}</div>`;
                 sessionListEl.appendChild(item);
             });
         }
@@ -698,6 +704,27 @@
             if (hrs < 24) return `${hrs}h ago`;
             const days = Math.floor(hrs / 24);
             return `${days}d ago`;
+        }
+
+        function truncate(text, max) {
+            if (!text || text.length <= max) return text;
+            return text.slice(0, max - 1) + '…';
+        }
+
+        function stripAnsi(str) {
+            return str.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
+        }
+
+        function recordOutput(bytes) {
+            const now = Date.now();
+            if (now - lastOutputUpdateAt < 500) return;
+            lastOutputUpdateAt = now;
+            const text = new TextDecoder().decode(bytes);
+            const clean = stripAnsi(text).replace(/\r/g, '');
+            const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length === 0) return;
+            const lastLine = lines[lines.length - 1];
+            updateSessionMeta(currentSession, { lastOutput: lastLine });
         }
 
         function maybeAutoName(commandCount, significant, history) {

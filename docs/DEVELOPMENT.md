@@ -278,6 +278,8 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
    - Optional non-blocking POST to user-defined naming endpoint after a few commands.
    - Sidebar shows 3-word display name + “time ago” + last `cd` directory.
    - Endpoint field hidden behind a `?` panel in sidebar.
+13. **Sidebar IO snippets**
+   - Shows last input and last output line for quick glance.
 
 ### Deployment
 ```bash
