@@ -182,6 +182,15 @@
             font-size: 10px;
             margin-top: 2px;
         }
+        .session-io {
+            color: #777;
+            font-size: 10px;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .session-io .label { color: #666; }
         .session-list button {
             background: #181818;
             color: #ccc;
@@ -629,14 +638,43 @@
                 const displayName = meta.displayName || name;
                 const createdAt = meta.createdAt || Date.now();
                 const lastDir = meta.lastDir || DEFAULT_DIR;
-                const lastInput = meta.lastInput ? truncate(meta.lastInput, 28) : '';
-                const lastOutput = meta.lastOutput ? truncate(meta.lastOutput, 28) : '';
-                const io = (lastInput || lastOutput) ? `${lastInput}${lastOutput ? ' → ' + lastOutput : ''}` : '';
+                const lastInput = meta.lastInput ? truncate(meta.lastInput, 36) : '';
+                const lastOutput = meta.lastOutput ? truncate(meta.lastOutput, 36) : '';
+
                 const item = document.createElement('button');
                 item.className = 'session-item';
                 item.classList.toggle('active', name === currentSession);
                 item.addEventListener('click', () => switchToSession(name));
-                item.innerHTML = `${displayName}<div class="session-meta">${timeAgo(createdAt)} · ${lastDir}${io ? '<br>' + io : ''}</div>`;
+
+                const title = document.createElement('div');
+                title.textContent = displayName;
+                item.appendChild(title);
+
+                const metaLine = document.createElement('div');
+                metaLine.className = 'session-meta';
+                metaLine.textContent = `${timeAgo(createdAt)} · ${lastDir}`;
+                item.appendChild(metaLine);
+
+                if (lastInput || lastOutput) {
+                    const io = document.createElement('div');
+                    io.className = 'session-io';
+                    const inputLabel = document.createElement('span');
+                    inputLabel.className = 'label';
+                    inputLabel.textContent = 'in: ';
+                    const inputText = document.createElement('span');
+                    inputText.textContent = lastInput || '—';
+                    const outputLabel = document.createElement('span');
+                    outputLabel.className = 'label';
+                    outputLabel.textContent = '  out: ';
+                    const outputText = document.createElement('span');
+                    outputText.textContent = lastOutput || '—';
+                    io.appendChild(inputLabel);
+                    io.appendChild(inputText);
+                    io.appendChild(outputLabel);
+                    io.appendChild(outputText);
+                    item.appendChild(io);
+                }
+
                 sessionListEl.appendChild(item);
             });
         }
