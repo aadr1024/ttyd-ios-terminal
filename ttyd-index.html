@@ -848,6 +848,11 @@
             e.stopPropagation();
             toggleSidePanel();
         });
+        sideHandle.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSidePanel();
+        });
 
         // Swipe/tap near right edge to open (backup for handle taps on iOS)
         window.addEventListener('touchstart', (e) => {
@@ -856,7 +861,7 @@
             if (touch.clientX > window.innerWidth - 20) {
                 sidePanel.classList.add('open');
             }
-        }, { passive: true });
+        }, { passive: true, capture: true });
 
         newSessionBtn.addEventListener('click', () => {
             const name = prompt('New session name', suggestSessionName());
@@ -919,7 +924,7 @@
         }
         showSideHint();
         if (window.location.hash.includes('sessions')) {
-            sidePanel.classList.add('open');
+            setTimeout(() => sidePanel.classList.add('open'), 50);
         }
         setInterval(renderSessions, 60000);
     </script>
