@@ -53,6 +53,12 @@ If you want a public server setup, jump to **Server (rented VPS)** below.
    location /transcribe {
        proxy_pass http://127.0.0.1:8787/transcribe;
    }
+   location /transcribe-stream {
+       proxy_pass http://127.0.0.1:8787/transcribe-stream;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+   }
    ```
 3. Use **HTTPS** (mic requires a secure context on iOS/macOS Safari).
 4. Tap 🎙 in the input bar; text inserts into the input field.
