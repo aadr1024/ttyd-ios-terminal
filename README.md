@@ -55,6 +55,7 @@ If you want a public server setup, jump to **Server (rented VPS)** below.
    }
    ```
 3. Tap 🎙 in the input bar; text inserts into the input field.
+   - Long‑press 🎙 to choose `nova-2` or `nova-3`.
 
 ### Server (rented VPS)
 

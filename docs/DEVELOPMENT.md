@@ -283,6 +283,7 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
    - Shows last input and last output line for quick glance.
 14. **Voice input**
    - Mic button records audio and calls `/transcribe` (Deepgram proxy).
+   - Long-press mic to choose `nova-2` or `nova-3`.
 
 ### Deployment
 ```bash

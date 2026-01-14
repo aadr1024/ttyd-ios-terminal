@@ -11,3 +11,4 @@ node ./transcribe-server.js
 ```
 
 Listens on `:8787` by default (override with `TRANSCRIBE_PORT`).
+Supports `nova-2` and `nova-3` (client can override per request).

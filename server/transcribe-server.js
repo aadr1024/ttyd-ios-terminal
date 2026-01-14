@@ -5,6 +5,7 @@ import { URL } from 'url';
 const PORT = Number(process.env.TRANSCRIBE_PORT || 8787);
 const API_KEY = process.env.DEEPGRAM_API_KEY || '';
 const MODEL = process.env.DEEPGRAM_MODEL || 'nova-2';
+const ALLOWED_MODELS = new Set(['nova-2', 'nova-3']);
 const MAX_BYTES = 12 * 1024 * 1024;
 
 if (!API_KEY) {
@@ -28,7 +29,7 @@ const server = http.createServer(async (req, res) => {
 
   req.on('end', async () => {
     try {
-      const { audio, mime } = JSON.parse(body || '{}');
+      const { audio, mime, model } = JSON.parse(body || '{}');
       if (!audio || !mime) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Missing audio or mime' }));
@@ -47,7 +48,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       const url = new URL('https://api.deepgram.com/v1/listen');
-      url.searchParams.set('model', MODEL);
+      const selectedModel = ALLOWED_MODELS.has(model) ? model : MODEL;
+      url.searchParams.set('model', selectedModel);
       url.searchParams.set('smart_format', 'true');
 
       const dg = await fetch(url, {

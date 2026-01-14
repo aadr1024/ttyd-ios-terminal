@@ -32,6 +32,7 @@
             padding: 5px;
             background: #1a1a1a;
             border-top: 1px solid #333;
+            position: relative;
         }
         .paste-area input {
             flex: 1;
@@ -69,6 +70,29 @@
             font-size: 10px;
             margin-left: 6px;
             align-self: center;
+        }
+        .mic-menu {
+            position: absolute;
+            right: 6px;
+            bottom: 46px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 4px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 20;
+        }
+        .mic-menu.show { display: flex; }
+        .mic-menu button {
+            background: #222;
+            color: #ccc;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: bold;
         }
         .controls {
             background: #1a1a1a;
@@ -309,6 +333,10 @@
         <button onclick="sendInput()">Send</button>
         <button id="mic-btn" class="mic-btn" aria-label="Voice input">🎙</button>
         <span id="mic-status" class="mic-status"></span>
+        <div id="mic-menu" class="mic-menu">
+            <button data-model="nova-2">Nova-2</button>
+            <button data-model="nova-3">Nova-3</button>
+        </div>
     </div>
 
     <div id="controls-extra" class="controls controls-extra">
@@ -617,9 +645,14 @@
         const sessionKillBtn = document.getElementById('session-kill-btn');
         const micBtn = document.getElementById('mic-btn');
         const micStatus = document.getElementById('mic-status');
+        const micMenu = document.getElementById('mic-menu');
+        const micMenuButtons = Array.from(micMenu.querySelectorAll('button[data-model]'));
         let mediaRecorder = null;
         let recordChunks = [];
         let recordStream = null;
+        let micPressTimer = null;
+        let didLongPress = false;
+        let selectedModel = localStorage.getItem('ttyd-mic-model') || 'nova-2';
 
         function loadSessions() {
             const raw = localStorage.getItem('ttyd-sessions');
@@ -834,7 +867,7 @@
                 const resp = await fetch('/transcribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio: base64, mime: blob.type })
+                    body: JSON.stringify({ audio: base64, mime: blob.type, model: selectedModel })
                 });
                 if (!resp.ok) throw new Error('Transcribe failed');
                 const data = await resp.json();
@@ -987,7 +1020,32 @@
             aiNamingPanel.classList.toggle('show');
         });
 
-        micBtn.addEventListener('click', async () => {
+        function setMicModel(model) {
+            selectedModel = model;
+            localStorage.setItem('ttyd-mic-model', selectedModel);
+            micMenuButtons.forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.model === selectedModel);
+            });
+            micStatus.textContent = selectedModel;
+        }
+
+        micMenuButtons.forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setMicModel(btn.dataset.model);
+                micMenu.classList.remove('show');
+            });
+        });
+
+        function showMicMenu() {
+            micMenu.classList.add('show');
+        }
+
+        function hideMicMenu() {
+            micMenu.classList.remove('show');
+        }
+
+        async function toggleRecording() {
             try {
                 if (mediaRecorder && mediaRecorder.state === 'recording') {
                     stopRecording();
@@ -996,6 +1054,39 @@
                 }
             } catch (e) {
                 micStatus.textContent = 'Mic error';
+            }
+        }
+
+        micBtn.addEventListener('pointerdown', () => {
+            didLongPress = false;
+            micPressTimer = setTimeout(() => {
+                didLongPress = true;
+                showMicMenu();
+            }, 450);
+        });
+
+        micBtn.addEventListener('pointerup', () => {
+            if (micPressTimer) clearTimeout(micPressTimer);
+        });
+
+        micBtn.addEventListener('pointercancel', () => {
+            if (micPressTimer) clearTimeout(micPressTimer);
+        });
+
+        micBtn.addEventListener('click', async (e) => {
+            if (didLongPress) {
+                e.preventDefault();
+                e.stopPropagation();
+                didLongPress = false;
+                return;
+            }
+            hideMicMenu();
+            await toggleRecording();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!micMenu.contains(e.target) && e.target !== micBtn) {
+                hideMicMenu();
             }
         });
 
@@ -1029,6 +1120,7 @@
             aiNamingPanel.classList.add('show');
         }
         showSideHint();
+        setMicModel(selectedModel);
         if (window.location.hash.includes('sessions')) {
             setTimeout(() => sidePanel.classList.add('open'), 50);
         }
