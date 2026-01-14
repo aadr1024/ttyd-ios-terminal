@@ -57,6 +57,7 @@ If you want a public server setup, jump to **Server (rented VPS)** below.
 3. Use **HTTPS** (mic requires a secure context on iOS/macOS Safari).
 4. Tap 🎙 in the input bar; text inserts into the input field.
    - Long‑press 🎙 to choose `nova-2` or `nova-3`.
+   - `nova-3` streams live (partial text updates while speaking).
 
 ### Server (rented VPS)
 

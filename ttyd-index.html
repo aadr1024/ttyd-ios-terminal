@@ -654,6 +654,10 @@
         let micPressTimer = null;
         let didLongPress = false;
         let selectedModel = localStorage.getItem('ttyd-mic-model') || 'nova-2';
+        let streamingActive = false;
+        let streamSocket = null;
+        let streamBaseText = '';
+        let streamFinalText = '';
 
         function loadSessions() {
             const raw = localStorage.getItem('ttyd-sessions');
@@ -838,6 +842,10 @@
                 micStatus.textContent = 'Mic not supported';
                 return;
             }
+            if (selectedModel === 'nova-3') {
+                await startStreamingRecording();
+                return;
+            }
             micStatus.textContent = 'Listening…';
             recordChunks = [];
             recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -851,7 +859,11 @@
             };
             mediaRecorder.onstop = () => {
                 recordStream.getTracks().forEach(t => t.stop());
-                handleRecordingStop();
+                if (streamingActive) {
+                    finalizeStreaming();
+                } else {
+                    handleRecordingStop();
+                }
             };
             mediaRecorder.start();
             micBtn.classList.add('recording');
@@ -862,6 +874,62 @@
                 mediaRecorder.stop();
             }
             micBtn.classList.remove('recording');
+        }
+
+        async function startStreamingRecording() {
+            micStatus.textContent = 'Listening…';
+            recordChunks = [];
+            streamingActive = true;
+            streamFinalText = '';
+            const input = document.getElementById('paste-input');
+            streamBaseText = input.value || '';
+
+            recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const options = {};
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                options.mimeType = 'audio/webm;codecs=opus';
+            }
+            mediaRecorder = new MediaRecorder(recordStream, options);
+            streamSocket = new WebSocket(`${WS_PROTOCOL}://${WS_HOST}/transcribe-stream?model=${selectedModel}`);
+            streamSocket.onmessage = (ev) => {
+                try {
+                    const data = typeof ev.data === 'string' ? ev.data : new TextDecoder().decode(ev.data);
+                    const msg = JSON.parse(data);
+                    const alt = msg?.channel?.alternatives?.[0] || {};
+                    const transcript = alt.transcript || '';
+                    if (msg.is_final && transcript) {
+                        streamFinalText = streamFinalText ? `${streamFinalText} ${transcript}` : transcript;
+                        input.value = streamBaseText ? `${streamBaseText} ${streamFinalText}` : streamFinalText;
+                    } else if (transcript) {
+                        micStatus.textContent = transcript;
+                    }
+                } catch {}
+            };
+            streamSocket.onerror = () => {
+                micStatus.textContent = 'Stream error';
+            };
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0 && streamSocket && streamSocket.readyState === WebSocket.OPEN) {
+                    streamSocket.send(e.data);
+                }
+            };
+            mediaRecorder.onstop = () => {
+                recordStream.getTracks().forEach(t => t.stop());
+                finalizeStreaming();
+            };
+            mediaRecorder.start(500);
+            micBtn.classList.add('recording');
+        }
+
+        function finalizeStreaming() {
+            if (streamSocket && streamSocket.readyState === WebSocket.OPEN) {
+                streamSocket.close();
+            }
+            streamSocket = null;
+            streamingActive = false;
+            micBtn.classList.remove('recording');
+            micStatus.textContent = '';
         }
 
         async function handleRecordingStop() {
@@ -971,8 +1039,11 @@
         }
 
         sideHandle.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
-            toggleSidePanel();
+            if (!('PointerEvent' in window)) {
+                toggleSidePanel();
+            }
         });
 
         sideHandle.addEventListener('touchstart', (e) => {

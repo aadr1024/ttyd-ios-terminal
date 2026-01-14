@@ -285,6 +285,7 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
    - Mic button records audio and calls `/transcribe` (Deepgram proxy).
    - Long-press mic to choose `nova-2` or `nova-3`.
    - Requires HTTPS on Safari (secure context).
+   - `nova-3` uses streaming via `/transcribe-stream`.
 
 ### Deepgram Key (server)
 ```bash

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import http from 'http';
 import { URL } from 'url';
+import { WebSocketServer, WebSocket } from 'ws';
 
 const PORT = Number(process.env.TRANSCRIBE_PORT || 8787);
 const API_KEY = process.env.DEEPGRAM_API_KEY || '';
@@ -70,6 +71,60 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Transcribe failed' }));
     }
+  });
+});
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  if (!req.url || !req.url.startsWith('/transcribe-stream')) {
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});
+
+wss.on('connection', (client, req) => {
+  if (!API_KEY) {
+    client.close(1011, 'Missing API key');
+    return;
+  }
+  const url = new URL(req.url || '', 'http://localhost');
+  const modelParam = url.searchParams.get('model') || MODEL;
+  const selectedModel = ALLOWED_MODELS.has(modelParam) ? modelParam : MODEL;
+
+  const dgUrl = new URL('wss://api.deepgram.com/v1/listen');
+  dgUrl.searchParams.set('model', selectedModel);
+  dgUrl.searchParams.set('smart_format', 'true');
+  dgUrl.searchParams.set('interim_results', 'true');
+  dgUrl.searchParams.set('encoding', 'opus');
+  dgUrl.searchParams.set('sample_rate', '48000');
+  dgUrl.searchParams.set('channels', '1');
+
+  const dg = new WebSocket(dgUrl.toString(), {
+    headers: { Authorization: `Token ${API_KEY}` }
+  });
+
+  dg.on('message', (data) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
+
+  dg.on('close', () => {
+    if (client.readyState === WebSocket.OPEN) client.close();
+  });
+
+  client.on('message', (msg) => {
+    if (dg.readyState === WebSocket.OPEN) {
+      dg.send(msg);
+    }
+  });
+
+  client.on('close', () => {
+    if (dg.readyState === WebSocket.OPEN) dg.close();
   });
 });
 
