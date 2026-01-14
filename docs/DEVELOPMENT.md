@@ -264,7 +264,7 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
    - Auto `cd /root/code` on connect.
    - Sidebar to switch sessions (tmux), create new, or fresh reset.
 8. **Extra controls toggle**
-   - Sidebar toggle shows extra row (session prev/next, rename, PgUp/PgDn, Home/End).
+   - Sidebar toggle shows extra row (session prev/next, rename, terminate, PgUp/PgDn, Home/End, Shift+Tab, font menu).
 9. **Session naming**
    - New session default name: `<host>-<timestamp>-server-skill`.
    - Rename current session from extra controls.
