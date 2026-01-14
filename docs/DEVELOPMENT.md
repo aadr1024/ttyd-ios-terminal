@@ -285,6 +285,11 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
    - Mic button records audio and calls `/transcribe` (Deepgram proxy).
    - Long-press mic to choose `nova-2` or `nova-3`.
 
+### Deepgram Key (server)
+```bash
+sudo nvim /etc/ttyd-deepgram.env && sudo systemctl restart ttyd-deepgram
+```
+
 ### Deployment
 ```bash
 scp ttyd-index.html root@YOUR_TAILSCALE_IP:/var/www/ttyd/index.html
