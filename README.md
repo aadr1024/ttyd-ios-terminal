@@ -39,6 +39,23 @@ Then open `http://localhost:7682`.
 If you want local-only on your Mac, use the section above.  
 If you want a public server setup, jump to **Server (rented VPS)** below.
 
+### Voice input (Deepgram)
+
+1. Start the transcribe server:
+   ```bash
+   cd server
+   export DEEPGRAM_API_KEY=sk-REPLACE
+   export DEEPGRAM_MODEL=nova-2
+   node transcribe-server.js
+   ```
+2. Proxy `/transcribe` in nginx:
+   ```nginx
+   location /transcribe {
+       proxy_pass http://127.0.0.1:8787/transcribe;
+   }
+   ```
+3. Tap 🎙 in the input bar; text inserts into the input field.
+
 ### Server (rented VPS)
 
 ```bash

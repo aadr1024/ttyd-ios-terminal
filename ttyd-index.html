@@ -51,6 +51,25 @@
             font-size: 14px;
             font-weight: bold;
         }
+        .paste-area .mic-btn {
+            background: #222;
+            color: #ccc;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 8px 10px;
+            font-size: 16px;
+            min-width: 36px;
+        }
+        .paste-area .mic-btn.recording {
+            background: #633;
+            color: #fff;
+        }
+        .mic-status {
+            color: #888;
+            font-size: 10px;
+            margin-left: 6px;
+            align-self: center;
+        }
         .controls {
             background: #1a1a1a;
             padding: 5px;
@@ -288,6 +307,8 @@
     <div class="paste-area">
         <input type="text" id="paste-input" placeholder="Tap here to type/paste, then Send" autocapitalize="off" autocorrect="off" spellcheck="false">
         <button onclick="sendInput()">Send</button>
+        <button id="mic-btn" class="mic-btn" aria-label="Voice input">🎙</button>
+        <span id="mic-status" class="mic-status"></span>
     </div>
 
     <div id="controls-extra" class="controls controls-extra">
@@ -594,6 +615,11 @@
         const sessionNextBtn = document.getElementById('session-next-btn');
         const sessionRenameBtn = document.getElementById('session-rename-btn');
         const sessionKillBtn = document.getElementById('session-kill-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const micStatus = document.getElementById('mic-status');
+        let mediaRecorder = null;
+        let recordChunks = [];
+        let recordStream = null;
 
         function loadSessions() {
             const raw = localStorage.getItem('ttyd-sessions');
@@ -769,6 +795,74 @@
             updateSessionMeta(currentSession, { lastOutput: lastLine });
         }
 
+        async function startRecording() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                micStatus.textContent = 'Mic not supported';
+                return;
+            }
+            micStatus.textContent = 'Listening…';
+            recordChunks = [];
+            recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const options = {};
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                options.mimeType = 'audio/webm;codecs=opus';
+            }
+            mediaRecorder = new MediaRecorder(recordStream, options);
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordChunks.push(e.data);
+            };
+            mediaRecorder.onstop = () => {
+                recordStream.getTracks().forEach(t => t.stop());
+                handleRecordingStop();
+            };
+            mediaRecorder.start();
+            micBtn.classList.add('recording');
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            micBtn.classList.remove('recording');
+        }
+
+        async function handleRecordingStop() {
+            try {
+                micStatus.textContent = 'Transcribing…';
+                const blob = new Blob(recordChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                const base64 = await blobToBase64(blob);
+                const resp = await fetch('/transcribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio: base64, mime: blob.type })
+                });
+                if (!resp.ok) throw new Error('Transcribe failed');
+                const data = await resp.json();
+                const text = (data && data.text) || '';
+                if (text) {
+                    const input = document.getElementById('paste-input');
+                    input.value = input.value ? `${input.value} ${text}` : text;
+                    input.focus();
+                }
+                micStatus.textContent = '';
+            } catch (e) {
+                micStatus.textContent = 'Transcribe error';
+            }
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = reject;
+                reader.onloadend = () => {
+                    const result = reader.result || '';
+                    const comma = result.indexOf(',');
+                    resolve(comma >= 0 ? result.slice(comma + 1) : result);
+                };
+                reader.readAsDataURL(blob);
+            });
+        }
+
         function maybeAutoName(commandCount, significant, history) {
             const enabled = localStorage.getItem('ttyd-ai-naming') === '1';
             const endpoint = localStorage.getItem('ttyd-ai-naming-endpoint') || '';
@@ -891,6 +985,18 @@
 
         aiNamingHelpBtn.addEventListener('click', () => {
             aiNamingPanel.classList.toggle('show');
+        });
+
+        micBtn.addEventListener('click', async () => {
+            try {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    stopRecording();
+                } else {
+                    await startRecording();
+                }
+            } catch (e) {
+                micStatus.textContent = 'Mic error';
+            }
         });
 
         sessionPrevBtn.addEventListener('click', () => cycleSession(-1));

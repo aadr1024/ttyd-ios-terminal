@@ -281,6 +281,8 @@ Verify iOS-friendly UI on `http://YOUR_TAILSCALE_IP:7682` in iOS Safari:
    - Endpoint field hidden behind a `?` panel in sidebar.
 13. **Sidebar IO snippets**
    - Shows last input and last output line for quick glance.
+14. **Voice input**
+   - Mic button records audio and calls `/transcribe` (Deepgram proxy).
 
 ### Deployment
 ```bash

@@ -1,0 +1,13 @@
+# Deepgram Transcribe Server
+
+Minimal server for `/transcribe` used by the mic button.
+
+## Run
+
+```bash
+export DEEPGRAM_API_KEY=sk-REPLACE
+export DEEPGRAM_MODEL=nova-2
+node ./transcribe-server.js
+```
+
+Listens on `:8787` by default (override with `TRANSCRIBE_PORT`).
