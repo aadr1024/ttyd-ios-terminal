@@ -829,6 +829,10 @@
         }
 
         async function startRecording() {
+            if (!window.isSecureContext) {
+                micStatus.textContent = 'HTTPS required';
+                return;
+            }
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 micStatus.textContent = 'Mic not supported';
                 return;

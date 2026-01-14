@@ -54,7 +54,8 @@ If you want a public server setup, jump to **Server (rented VPS)** below.
        proxy_pass http://127.0.0.1:8787/transcribe;
    }
    ```
-3. Tap 🎙 in the input bar; text inserts into the input field.
+3. Use **HTTPS** (mic requires a secure context on iOS/macOS Safari).
+4. Tap 🎙 in the input bar; text inserts into the input field.
    - Long‑press 🎙 to choose `nova-2` or `nova-3`.
 
 ### Server (rented VPS)
